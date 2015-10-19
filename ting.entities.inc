@@ -24,9 +24,16 @@ class TingRelation extends DingEntityBase {
     }
   }
 
-
   public function getObject() {
     return $this->properties['object'];
+  }
+
+  public function getURI() {
+    return $this->properties['uri'];
+  }
+
+  public function getType() {
+    return $this->properties['type'];
   }
 }
 
@@ -314,9 +321,9 @@ class TingEntity extends DingEntity {
         foreach ($this->reply->relationsData as $data) {
           if ($data->relationType == 'dbcaddi:hasOnlineAccess') {
             $url = preg_replace('/^\[URL\]/', '', $data->relationUri);
-            // Check for correct url - some uri is only an id.
-            if (stripos($url, 'http') === 0) {
-              // Give ting_proxy a change to rewrite the url.
+            // Check for correct url or leading token - some uri is only an id.
+            if (stripos($url, 'http') === 0 || strpos($url, '[') === 0) {
+              // Give other modules a chance to rewrite the url.
               drupal_alter('ting_online_url', $url, $this);
             }
           }
