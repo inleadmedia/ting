@@ -46,45 +46,6 @@ function ting_menu() {
 }
 
 /**
- * Implements hook_menu_alter().
- *
- * Adjusts the menu so that the field subtab becomes the default local task,
- * to avoid having an useless placeholder page.
- */
-function ting_menu_alter(&$items) {
-  if (module_exists('field_ui')) {
-    if (isset($items['admin/structure/ting_object/fields'])) {
-      // Make the fields task the default local task.
-      $items['admin/structure/ting_object'] = $items['admin/structure/ting_object/fields'];
-      $item = &$items['admin/structure/ting_object'];
-      $item['type'] = MENU_NORMAL_ITEM;
-      $item['title'] = 'Ting objects';
-      $item['description'] = 'Manage Ting object display.';
-
-      $items['admin/structure/ting_object/fields'] = array(
-        'title' => 'Manage fields',
-        'type' => MENU_DEFAULT_LOCAL_TASK,
-        'weight' => 1,
-      );
-    }
-    if (isset($items['admin/structure/ting_collection/fields'])) {
-      // Make the fields task the default local task.
-      $items['admin/structure/ting_collection'] = $items['admin/structure/ting_collection/fields'];
-      $item = &$items['admin/structure/ting_collection'];
-      $item['type'] = MENU_NORMAL_ITEM;
-      $item['title'] = 'Ting collection';
-      $item['description'] = 'Manage Ting collection display.';
-
-      $items['admin/structure/ting_collection/fields'] = array(
-        'title' => 'Manage fields',
-        'type' => MENU_DEFAULT_LOCAL_TASK,
-        'weight' => 1,
-      );
-    }
-  }
-}
-
-/**
  * Implements hook_ding_install_tasks().
  */
 function ting_ding_install_tasks() {
@@ -151,42 +112,6 @@ function ting_get_relations($ting_entity) {
 }
 
 /**
- * Implements hook_element_info().
- *
- * Define a new form element named ting_ranking_field.
- *
- * It calls the theme function theme_ting_ranking_field, if not defined
- * no elements will be displayed.
- */
-function ting_element_info() {
-  return array(
-    'ting_boost_field' => array(
-      '#input' => TRUE,
-      '#process' => array('ting_boost_field_element_process'),
-    ),
-    'ting_ranking_field' => array(
-      '#input' => TRUE,
-      '#process' => array('ting_ranking_field_element_process'),
-    ),
-  );
-}
-
-/**
- * Implements hook_ding_devel_timers().
- */
-function ting_ding_devel_timers() {
-  return array(
-    'ting' => array(
-      'title' => 'Ting total request time was @time ms.',
-    ),
-    'ting_net' => array(
-      'title' => 'Ting net time was @time ms.',
-      'include in total' => FALSE,
-    ),
-  );
-}
-
-/**
  * Implements hook_entity_info().
  */
 function ting_entity_info() {
@@ -200,72 +125,47 @@ function ting_entity_info() {
       'ding_entity_type' => 'ding_entity',
       'ding_entity_menu' => 'ting/object/%ting_object',
       'ding_entity_index' => 2,
-      'fieldable' => TRUE,
+      'fieldable' => FALSE,
       'entity keys' => array(
         'id' => 'tid',
         'revision' => 'vid',
       ),
-      'view modes' => array(
-        'full' => array(
-          'label' => t('Full content'),
-          'custom settings' => FALSE,
-        ),
-        'teaser' => array(
-          'label' => t('Teaser'),
-          'custom settings' => TRUE,
-        ),
-      ),
-      'bundles' => array(
-        'ting_object' => array(
-          'label' => 'Ting object',
-          'admin' => array(
-            'path' => 'admin/structure/ting_object',
-            'access arguments' => array('administer content types'),
-          ),
-        ),
-      ),
+      'view modes' => array(),
+      'bundles' => array(),
     ),
 
     'ting_collection' => array(
       'label' => t('Ting collection'),
       'controller class' => 'TingCollectionController',
-      // Some modules assume that fieldable entities has a base
-      // table. Specify the object table as each collection is also an
-      // object.
       'base table' => 'ting_object',
       'uri callback' => 'ting_collection_uri',
       'ding_entity_type' => 'ding_entity_collection',
       'ding_entity_menu' => 'ting/collection/%ting_collection',
       'ding_entity_index' => 2,
-      'fieldable' => TRUE,
+      'fieldable' => FALSE,
       'entity keys' => array(
-        // We don't really have an ID, but use the ding_entity_id,
-        // so we can use entity_uri.
         'id' => 'ding_entity_id',
       ),
-      'view modes' => array(
-        'full' => array(
-          'label' => t('Full content'),
-          'custom settings' => FALSE,
-        ),
-        'teaser' => array(
-          'label' => t('Teaser'),
-          'custom settings' => TRUE,
-        ),
-      ),
-      'bundles' => array(
-        'ting_collection' => array(
-          'label' => 'Ting collection',
-          'admin' => array(
-            'path' => 'admin/structure/ting_collection',
-            'access arguments' => array('administer content types'),
-          ),
-        ),
-      ),
+      'view modes' => array(),
+      'bundles' => array(),
     ),
   );
 
   return $return;
+}
+
+/**
+ * Callback for entity_uri(). Returns the uri for the object.
+ */
+function ting_object_uri($collection) {
+  return array('path' => 'ting/object/' . $collection->id);
+}
+
+/**
+ * Callback for entity_uri(). Returns the uri for the collection.
+ */
+function ting_collection_uri($collection) {
+  return array('path' => 'ting/collection/' . $collection->id);
 }
 
 /**
@@ -291,158 +191,12 @@ function ting_registry_files_alter(&$files, $modules) {
 }
 
 /**
- * Implements hook_ding_entity_is().
- */
-function ting_ding_entity_is($object, $class) {
-  if ($class == 'reservable' || $class == 'cartable') {
-    $sources = variable_get('ting_reservable_sources', _ting_default_reservable_sources());
-    $types = variable_get('ting_reservable_types', _ting_default_reservable_types());
-    if (in_array(drupal_strtolower($object->ac_source), $sources) && in_array(drupal_strtolower($object->type), $types)) {
-      return TRUE;
-    }
-    else {
-      return FALSE;
-    }
-  }
-  elseif ($class == 'periodical') {
-    // @todo make this configurable.
-    // @todo also make sure that availability information isn't displayed
-    //   on the object
-    return in_array(drupal_strtolower($object->type), array('tidsskrift', 'periodikum', 'årbog'));
-  }
-}
-
-/**
- * Implements hook_page_alter().
- *
- * Log, and display if the devel module is active and the user has
- * permissions, a warning if the data well was queried more than once.
- */
-function ting_page_alter(&$page) {
-  $calls = &drupal_static('ting_execute_cache');
-  if (count($calls) > 5) {
-    $calls_str = array();
-    foreach ($calls as $call) {
-      $calls_str[] = print_r($calls, TRUE);
-    }
-
-    watchdog('ting', 'Warning, ting_execute called @x times:<br />"@queries"', array('@x' => count($calls), '@queries' => implode('" "', $calls_str)), WATCHDOG_WARNING);
-
-    if (function_exists('dpm') && user_access('access devel information')) {
-      drupal_set_message(t('Warning, ting_execute called @x times.', array('@x' => count($calls))), 'error');
-      dpm($calls, 'ting_execute queries:');
-    }
-  }
-}
-
-/**
- * Callback for entity_uri(). Returns the uri for the object.
- */
-function ting_object_uri($collection) {
-  return array('path' => 'ting/object/' . $collection->id);
-}
-
-/**
- * Callback for entity_uri(). Returns the uri for the collection.
- */
-function ting_collection_uri($collection) {
-  return array('path' => 'ting/collection/' . $collection->id);
-}
-
-/**
- * Add a provider_id to the objects.
- *
- * @to do
- *   Maybe this should be in a mapper module.
- */
-function ting_ting_object_load($objects) {
-  foreach ($objects as $object) {
-    $object->provider_id = $object->localId;
-  }
-}
-
-/**
- * Load a ting object.
- *
- * Don't use this, use ding_entity_load(). Default menu callback load of ting
- * object.
- *
- * Handles redirect from data well version 2 to version 3.
- */
-function ting_object_load($id) {
-  $agency = variable_get('ting_agency', FALSE);
-  if ($agency && preg_match('/^(\d{6}):(\w+)$/', $id, $matches)) {
-    // Matched to data well version 2, to redirect to version 3.
-    $new_id = ding_provider_build_entity_id($matches[2], $matches[1]);
-    if ($new_id === FALSE) {
-      $id = ting_lookup_and_translate($id);
-    }
-    else {
-      $id = $new_id;
-    }
-    drupal_goto('ting/object/' . $id, array(), 301);
-  }
-
-  return ding_entity_load($id, 'ting_object');
-}
-
-
-/**
- * Try to lookup well3 pid via a search on the old pid.
- * Search query is constructed from old pid eg. 870971:72966643 -> '870971 and 72966643'
- *
- * This is NOT foolproof - if more than one result is found the first is returned, and that might not
- * be the correct one
- *
- * @param $old_pid ( eg 870971:72966643)
- * @return bool|mixed; new pid (eg  870971-tsart:72966643 ) if found; else FALSE
- */
-function ting_lookup_and_translate($old_pid) {
-  $query_elements = explode(':', $old_pid);
-  $query = implode(' and ', $query_elements);
-
-  module_load_include('client.inc', 'ting');
-  $result = ting_do_search($query, 1, 1, array('facets' => array()));
-  if (!empty($result->collections)) {
-    $id = key($result->collections);
-    return $id;
-  }
-  return FALSE;
-}
-
-
-/**
  * Load multiple ting objects.
  *
  * Don't use this, use ding_entity_load_multiple().
  */
 function ting_object_load_multiple($ids) {
   return ding_entity_load_multiple($ids, 'ting_object');
-}
-
-/**
- * Load a ting collection.
- *
- * Don't use this, use ding_collection_load(). Default menu callback load of
- * ting collections.
- *
- * Handles redirect from data well version 2 to version 3.
- */
-function ting_collection_load($id) {
-  $agency = variable_get('ting_agency', FALSE);
-  if ($agency && preg_match('/^(\d{6}):(\w+)$/', $id, $matches)) {
-    // Matched to data well version 2, to redirect to version 3.
-    $new_id = ding_provider_build_entity_id($matches[2], $matches[1]);
-    if ($new_id === FALSE) {
-      $id = ting_lookup_and_translate($id);
-    }
-    else {
-      $id = $new_id;
-    }
-    drupal_goto('ting/collection/' . $id, array(), 301);
-  }
-
-  return ding_entity_load($id, 'ting_collection');
 }
 
 /**
