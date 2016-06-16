@@ -46,6 +46,7 @@ function ting_get_object($object_id, $collection = FALSE, $with_relations = FALS
 
       // Build request request and set object id.
       $request = ting_get_request_factory()->getObjectRequest();
+
       if (!is_object($request)) {
         return NULL;
       }
@@ -79,7 +80,6 @@ function ting_get_object($object_id, $collection = FALSE, $with_relations = FALS
 
       // Execute the request.
       $object = ting_execute_cache($request);
-
       // If this was a collection request store the collection reply to ensure
       // that there is no empty cache entry.
       if ($collection) {
@@ -264,10 +264,11 @@ function ting_do_search($query, $page = 1, $results_per_page = 10, $options = ar
   );
   $request->setFacets((isset($options['facets'])) ? $options['facets'] : $default_facets);
   $request->setNumFacets((isset($options['numFacets'])) ? $options['numFacets'] : ((count($request->getFacets()) == 0) ? 0 : 10));
+
   if (isset($options['sort']) && $options['sort']) {
     $request->setSort($options['sort']);
   }
-  else{
+  else {
     $sort = variable_get('ting_sort_default', 'rank_frequency');
     $request->setSort($sort);
   }
@@ -275,6 +276,11 @@ function ting_do_search($query, $page = 1, $results_per_page = 10, $options = ar
   if (isset($options['collectionType'])) {
     $request->setCollectionType($options['collectionType']);
   }
+
+  if (isset($options['objectFormat'])) {
+    $request->setObjectFormat($options['objectFormat']);
+  }
+
   $request->setAllObjects(isset($options['allObjects']) ? $options['allObjects'] : FALSE);
 
   // Set search profile, if applicable.
@@ -355,11 +361,11 @@ function ting_do_search($query, $page = 1, $results_per_page = 10, $options = ar
  *   The search reply from the data well.
  */
 function ting_execute_cache($request) {
-  $parms = $request->getRequest()->getParameters();
+  $params = $request->getRequest()->getParameters();
 
   // Handle fulltext vs. dkabm caching of object.
   $type = TING_CACHE_TING_OBJECT;
-  if ($parms['format'] == 'docbook') {
+  if ($params['objectFormat'] == 'docbook') {
     $type = TING_CACHE_TING_OBJECT_FULLTEXT;
   }
 
@@ -369,10 +375,10 @@ function ting_execute_cache($request) {
   if (!isset($calls)) {
     $calls = array();
   }
-  $calls[] = $parms;
+  $calls[] = $params;
 
   // Check if the reply have been stored in cache.
-  $reply = ting_cache_get(md5(serialize($parms)), TING_CACHE_REPLY);
+  $reply = ting_cache_get(md5(serialize($params)), TING_CACHE_REPLY);
 
   if (!$reply) {
     // Reply for the request was not found, so we have to ask the data well.
@@ -436,7 +442,7 @@ function ting_execute_cache($request) {
       // Handle empty data well replies.
       $reply = TING_CACHE_EMPTY_ENTRY;
     }
-    ting_cache_set(md5(serialize($parms)), $reply, TING_CACHE_REPLY);
+    ting_cache_set(md5(serialize($params)), $reply, TING_CACHE_REPLY);
   }
 
   if ($reply == TING_CACHE_EMPTY_ENTRY) {
@@ -625,11 +631,6 @@ function ting_get_request_factory() {
       'recommendation' => 'ting_recommendation_url',
     );
 
-    // TODO: This should probably be rethought.
-    if (module_exists('ting_infomedia') && variable_get('ting_infomedia_url', FALSE)) {
-      $url_variables['infomedia'] = 'ting_infomedia_url';
-    }
-
     $urls = array();
     foreach ($url_variables as $name => $setting) {
       $urls[$name] = variable_get($setting, FALSE);
@@ -683,7 +684,7 @@ function ting_execute($request) {
     // next part expect JSON only formatted input. So this hack simply return
     // the XML for now as later on we have to work with open format and XML
     // parsing. So for now simply return the result to fulltext.
-    if ($request instanceof TingClientObjectRequest && $request->getOutputType() == 'xml' && $request->getFormat() == 'docbook') {
+    if ($request instanceof TingClientObjectRequest && $request->getOutputType() == 'xml' && $request->getObjectFormat() == 'docbook') {
       return $res;
     }
 

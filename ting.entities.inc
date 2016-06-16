@@ -161,7 +161,7 @@ class TingEntity extends DingEntity {
     }
     return trim($serie[0]);
   }
-  
+
  function getSerieDescription() {
     $serie = !empty($this->reply->record['dc:description']['dkdcplus:series'][0]) ? $this->reply->record['dc:description']['dkdcplus:series'][0] : '';
     return $this->process_series_description($serie);
